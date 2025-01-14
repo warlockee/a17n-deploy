@@ -1,0 +1,17 @@
+# use pv when you don't have storageclass
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: efs-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: efs-sc
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-094c118b51072e57f::fsap-04f2759532009e4fa
+    # volumeHandle: <EFS-FILE-SYSTEM-ID>::<ACCESS-POINT-ID>

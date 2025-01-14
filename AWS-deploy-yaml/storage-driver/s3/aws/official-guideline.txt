@@ -1,0 +1,16 @@
+
+https://github.com/awslabs/mountpoint-s3-csi-driver/blob/main/docs/install.md
+
+basically, follow this tutorial:
+https://docs.aws.amazon.com/eks/latest/userguide/s3-csi.html#s3-create-iam-role
+
+
+eksctl create iamserviceaccount \
+    --name s3-csi-driver-sa \
+    --namespace kube-system \
+    --cluster data-infra-dev \
+    --attach-policy-arn arn:aws:iam::590183687488:policy/AmazonS3CSIDriverPolicy \
+    --approve \
+    --role-name AmazonS3CSIDriverPolicy \
+    --region us-west-2 \
+    --role-only

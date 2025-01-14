@@ -1,0 +1,8 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: s3-standard
+provisioner: s3.csi.aws.com
+parameters:
+  csi.storage.k8s.io/fstype: ext4 
+  csi.storage.k8s.io/bucket: data-infra-s3-dev

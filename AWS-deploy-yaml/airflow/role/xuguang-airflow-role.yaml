@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: airflow
+  name: developer 
+rules:
+  # Permissions for managing services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "get", "list", "watch"]
+  
+  # Permissions for accessing pods
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to perform port-forwarding
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    verbs: ["create"]

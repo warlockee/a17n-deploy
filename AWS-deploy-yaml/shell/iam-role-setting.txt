@@ -1,0 +1,5 @@
+# 1. Get the IAM Role Name associated with your worker nodes (replace <cluster-name> with your actual cluster name)
+aws eks describe-cluster --name data-infra-dev --query "cluster.resourcesVpcConfig.roleArn" --output text
+
+# 2. Attach the AWS-managed policy to the role (replace <role-name> with the role name from step 1)
+aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AmazonEKS_EBS_CSI_DriverPolicy --role-name <role-name>

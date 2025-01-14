@@ -1,0 +1,36 @@
+# role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: airflow  # Replace with your target namespace
+  name: service-portforward-role
+rules:
+  # Permissions for managing services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "get", "list", "watch"]
+  
+  # Permissions for accessing pods
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to perform port-forwarding
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    verbs: ["create"]
+    
+  # Permission to access pod logs
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list", "watch"]
+    
+  # Permission to access endpoints
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch"]
+    
+  # Permission to access services/proxy
+  - apiGroups: [""]
+    resources: ["services/proxy"]
+    verbs: ["get", "create"]

@@ -1,0 +1,17 @@
+# This one doesn't work for now
+
+helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+helm repo update
+helm install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \
+  --namespace kube-system \
+  --set enableS3=true \
+  --set image.repository=602401143452.dkr.ecr.us-west-2.amazonaws.com/eks/aws-ebs-csi-driver \
+  --set controller.s3.bucketName=data-infra-s3-dev \
+  --set controller.s3.region=us-west-2
+
+ # --------------
+
+
+# ctrox/csi-s3 driver
+
+https://github.com/ctrox/csi-s3.git

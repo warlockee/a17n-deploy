@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-pod
+  namespace: default
+spec:
+  containers:
+  - name: debug-container
+    image: python:3.9.20-slim-bullseye
+    command: ['bash', '-c', 'sleep 36000000']
+    stdin: true
+    tty: true
+    volumeMounts:
+    - name: host-path-project
+      mountPath: /mnt/project
+    - name: host-path-personal
+      mountPath: /mnt/personal
+  volumes:
+  - name: host-path-project
+    hostPath:
+      path: /mnt/ddnfs01/project/project-llm
+      type: Directory
+  - name: host-path-personal
+    hostPath:
+      path: /mnt/ddnfs01/personal/xiaoyi.li
+      type: Directory
+  restartPolicy: Never

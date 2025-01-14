@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  securityContext:
+    fsGroup: 1000
+  containers:
+  - name: test-container
+    securityContext:
+      allowPrivilegeEscalation: false
+    image: busybox  
+      # command: ["/bin/sh", "-c", "echo 'Hello from testbox' > /mnt/efs/testfile && sleep 3600"]
+    command: ["/bin/sh", "-c", "echo 'Hello from testbox'"]
+    volumeMounts:
+    # - mountPath: /mnt/efs
+    #   name: efs-storage
+    - mountPath: /mnt/s3
+      name: s3-storage
+  volumes:
+  # - name: efs-storage
+  #   persistentVolumeClaim:
+  #     claimName: efs-pvc
+  - name: s3-storage
+    persistentVolumeClaim:
+      claimName: s3-pvc

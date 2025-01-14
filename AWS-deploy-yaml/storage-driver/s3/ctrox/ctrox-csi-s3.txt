@@ -1,0 +1,5 @@
+Follow instructions here:
+https://github.com/ctrox/csi-s3
+
+
+# Do not add region on secret

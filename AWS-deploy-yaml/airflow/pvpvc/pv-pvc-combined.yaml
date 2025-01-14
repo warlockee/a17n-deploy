@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-postgres
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-postgres/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-postgres-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-postgres
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-redis
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-redis/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-redis-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-redis-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-redis
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-airflow-scheduler
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-scheduler/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-airflow-scheduler-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-scheduler-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-airflow-scheduler
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-airflow-worker
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-worker/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-airflow-worker-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-worker-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-airflow-worker
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-airflow-logs
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-logs/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-airflow-logs-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-logs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-airflow-logs
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-airflow-triggerer
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-triggerer/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-airflow-triggerer-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-triggerer-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-airflow-triggerer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-airflow-dag
+spec:
+  capacity:
+    storage: 1000Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region=us-west-2
+    - prefix=airflow-dag/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-airflow-dag-handle"
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-dag-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1000Gi
+  volumeName: pv-airflow-dag
