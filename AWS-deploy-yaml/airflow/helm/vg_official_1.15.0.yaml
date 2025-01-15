@@ -355,7 +355,7 @@ fernetKey: ~
 fernetKeySecretName: ~
 
 # Flask secret key for Airflow Webserver: `[webserver] secret_key` in airflow.cfg
-webserverSecretKey: ~
+webserverSecretKey: 1d68896ddba5d8fdebf70fb8aabb2518
 webserverSecretKeySecretName: ~
 
 # In order to use kerberos you need to create secret containing the keytab file
@@ -401,12 +401,18 @@ workers:
       hostPath:
         path: /mnt/ddnfs01/project/project-llm/airflow/dags
         type: Directory
+    - name: airflow-logs
+      hostPath:
+        path: /mnt/ddnfs01/project/project-llm/airflow/logs
+        type: Directory
 
   extraVolumeMounts:
     - name: shared-host-path
       mountPath: /mnt/data/workers
     - name: shared-dags
       mountPath: /opt/airflow/dags
+    - name: airflow-logs
+      mountPath: /opt/airflow/logs
   
   # If the worker stops responding for 5 minutes (5*60s) kill the
   # worker and let Kubernetes restart it
@@ -686,11 +692,17 @@ scheduler:
       hostPath:
         path: /mnt/ddnfs01/project/project-llm/airflow/dags
         type: Directory
+    - name: airflow-logs
+      hostPath:
+        path: /mnt/ddnfs01/project/project-llm/airflow/logs
+        type: Directory
   extraVolumeMounts:
     - name: shared-host-path
       mountPath: /mnt/data/scheduler
     - name: shared-dags
       mountPath: /opt/airflow/dags
+    - name: airflow-logs
+      mountPath: /opt/airflow/logs
 
   # Select certain nodes for airflow scheduler pods.
   nodeSelector: {}
@@ -1006,11 +1018,17 @@ webserver:
       hostPath:
         path: /mnt/ddnfs01/project/project-llm/airflow/dags
         type: Directory
+    - name: airflow-logs
+      hostPath:
+        path: /mnt/ddnfs01/project/project-llm/airflow/logs
+        type: Directory
   extraVolumeMounts:
     - name: shared-host-path
       mountPath: /mnt/data/webserver
     - name: shared-dags
       mountPath: /opt/airflow/dags
+    - name: airflow-logs
+      mountPath: /opt/airflow/logs
 
   # This string (can be templated) will be mounted into the Airflow Webserver
   # as a custom webserver_config.py.
@@ -1055,21 +1073,23 @@ webserver:
 
 # Logs configuration
 logs:
-  # Disable persistence and mount the shared-host-path
   persistence:
-    enabled: true
-    size: 100Gi
+    enabled: false
+    # size: 100Gi
     # Remove or comment out the existingClaim line to create a new PVC
-    existingClaim: "logs-airflow-triggerer-0"
-    storageClassName: "" # Specify your storage class if needed
-  extraVolumes:
-    - name: shared-host-path
-      hostPath:
-        path: /mnt/ddnfs01/project/project-llm/airflow
-        type: Directory
-  extraVolumeMounts:
-    - name: shared-host-path
-      mountPath: /mnt/data/logs
+    # existingClaim: "logs-airflow-triggerer-0"
+    # storageClassName: "" # Specify your storage class if needed
+
+# Move the volume configurations to the global level
+extraVolumes:
+  - name: shared-host-path
+    hostPath:
+      path: /mnt/ddnfs01/project/project-llm/airflow/logs
+      type: Directory
+
+extraVolumeMounts:
+  - name: shared-host-path
+    mountPath: /opt/airflow/logs
 
 # Dags configuration
 dags:
@@ -1173,6 +1193,8 @@ postgresql:
 config:
   core:
     dags_folder: /opt/airflow/dags
+    # Add this line to define the base logs folder
+    base_log_folder: /opt/airflow/logs
     # This is ignored when used with the official Docker image
     load_examples: 'False'
     executor: '{{ .Values.executor }}'
@@ -1195,7 +1217,7 @@ config:
     log_filename_template: '{{`{{ti.dag_id}}/{{ti.task_id}}/{{ts}}/{{try_number}}.log`}}'
     log_processor_filename_template: '{{`{{filename}}.log`}}'
     dag_file_processor_log_target: "stdout"
-    task_log_reader: "task"
+    task_log_reader: local
     extra_loggers: ""
   metrics:
     statsd_on: '{{ ternary "True" "False" .Values.statsd.enabled }}'
