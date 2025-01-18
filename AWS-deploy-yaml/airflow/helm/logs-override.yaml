@@ -1,3 +1,0 @@
-logs:
-  persistence:
-    existingClaim: "logs-airflow-triggerer-0" 
