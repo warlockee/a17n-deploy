@@ -24,6 +24,12 @@ airflow:
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "False"
     AIRFLOW__CORE__LOAD_EXAMPLES: "False"
     AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: "False"
+  
+    # Increase Airflow's overall parallelism:
+    AIRFLOW__CORE__PARALLELISM: "16"
+    AIRFLOW__CORE__DAG_CONCURRENCY: "32"
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "5"
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "16"
 
     # “Remote logging” in this chart’s context means writing logs to /opt/airflow/logs,
     # then letting the chart handle them as needed.
@@ -131,10 +137,21 @@ web:
 ## Celery Workers
 ###################################
 workers:
+  replicas: 4
   resources:
     requests:
-      cpu: "256m"
-      memory: "2Gi"
+      cpu: "2000m"
+      memory: "4Gi"
+
+  extraVolumes:
+  - name: airflow-shared
+    persistentVolumeClaim:
+      claimName: airflow-shared
+
+  extraVolumeMounts:
+    - name: airflow-shared
+      mountPath: /opt/airflow/shared
+  
   logGroomerSidecar:
     enabled: true
     retentionDays: 15
