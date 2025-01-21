@@ -1,0 +1,272 @@
+#####################################################################
+# values.yaml for the strict Apache Airflow Helm Chart (v8+)
+# with ddnfs01 StorageClass for all persistent volumes
+#####################################################################
+
+########################################
+## Top-level Airflow Configuration
+########################################
+airflow:
+  legacyCommands: false
+
+  image:
+    repository: apache/airflow
+    tag: 2.8.4-python3.9
+
+  executor: CeleryExecutor
+
+  # We’ll pull Fernet/webserver secrets from K8s Secret
+  fernetKey: ""
+  webserverSecretKey: ""
+
+  # Additional environment variables for Airflow config
+  config:
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "False"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: "False"
+  
+    # Increase Airflow's overall parallelism:
+    AIRFLOW__CORE__PARALLELISM: "16"
+    AIRFLOW__CORE__DAG_CONCURRENCY: "32"
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "5"
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "16"
+
+    # “Remote logging” in this chart’s context means writing logs to /opt/airflow/logs,
+    # then letting the chart handle them as needed.
+    AIRFLOW__LOGGING__REMOTE_LOGGING: "True"
+    AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER: "/opt/airflow/logs"
+    AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID: ""
+    AIRFLOW__LOGGING__LOGGING_LEVEL: "INFO"
+    AIRFLOW__LOGGING__FAB_LOGGING_LEVEL: "WARN"
+    AIRFLOW__LOGGING__COLORED_CONSOLE_LOG: "False"
+    AIRFLOW__LOGGING__LOG_FORMAT: "[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
+    AIRFLOW__LOGGING__SIMPLE_LOG_FORMAT: "%(asctime)s %(levelname)s - %(message)s"
+    AIRFLOW__LOGGING__TASK_LOG_PREFIX_TEMPLATE: "{{ '{{ti.dag_id}}/{{ti.task_id}}/{{ts}}/{{try_number}}' }}"
+    AIRFLOW__LOGGING__LOG_FILENAME_TEMPLATE: "{{ '{{ti.dag_id}}/{{ti.task_id}}/{{ts}}/{{try_number}}.log' }}"
+    AIRFLOW__LOGGING__LOG_PROCESSOR_FILENAME_TEMPLATE: "{{ '{{filename}}.log' }}"
+    AIRFLOW__LOGGING__DAG_FILE_PROCESSOR_LOG_TARGET: "stdout"
+    AIRFLOW__LOGGING__TASK_LOG_READER: "task"
+
+    # DAGs folder, only used if gitSync is enabled
+    AIRFLOW__CORE__DAGS_FOLDER: "/opt/airflow/dags/repo"
+
+    # Email & SMTP
+    AIRFLOW__EMAIL__EMAIL_BACKEND: "airflow.utils.email.send_email_smtp"
+    AIRFLOW__SMTP__SMTP_HOST: "smtpmail.example.com"
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: "admin@airflow-cluster1.example.com"
+    AIRFLOW__SMTP__SMTP_PORT: "25"
+    AIRFLOW__SMTP__SMTP_SSL: "False"
+    AIRFLOW__SMTP__SMTP_STARTTLS: "False"
+
+    # DB & Celery configs (using embedded PostgreSQL)
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: >-
+      postgresql+psycopg2://postgres:postgres@{{ .Release.Name }}-postgresql:5432/postgres
+    AIRFLOW__CELERY__RESULT_BACKEND: >-
+      db+postgresql://postgres:postgres@{{ .Release.Name }}-postgresql:5432/postgres
+
+    # Redis for Celery broker (using embedded Redis)
+    AIRFLOW__CELERY__BROKER_URL: >-
+      redis://:${REDIS_PASSWORD}@{{ .Release.Name }}-redis-master:6379/0
+
+  # Create an admin user
+  users:
+    - username: admin
+      password: admin
+      role: Admin
+      email: admin@example.com
+      firstName: admin
+      lastName: admin
+
+  # Create an Airflow variable
+  variables:
+    - key: "environment"
+      value: "prod"
+
+  # Pull secrets from K8s
+  extraEnv:
+    - name: AIRFLOW__CORE__FERNET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: airflow-cluster1-fernet-key
+          key: value
+    - name: AIRFLOW__WEBSERVER__SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: airflow-cluster1-webserver-key
+          key: value
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: airflow-cluster1-redis-password
+          key: redis-password
+
+
+###################################
+## Scheduler
+###################################
+scheduler:
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "512Mi"
+
+  # Groom logs older than 15 days
+  logGroomerSidecar:
+    enabled: true
+    retentionDays: 15
+    resources:
+      requests:
+        cpu: "10m"
+        memory: "32Mi"
+
+
+###################################
+## Webserver
+###################################
+web:
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "900Mi"
+  service:
+    type: ClusterIP
+    port: 80
+
+
+###################################
+## Celery Workers
+###################################
+workers:
+  replicas: 40
+  resources:
+    requests:
+      cpu: "2000m"
+      memory: "4Gi"
+
+  extraVolumes:
+  - name: airflow-shared
+    persistentVolumeClaim:
+      claimName: airflow-shared
+
+  extraVolumeMounts:
+    - name: airflow-shared
+      mountPath: /opt/airflow/shared
+  
+  logGroomerSidecar:
+    enabled: true
+    retentionDays: 15
+    resources:
+      requests:
+        cpu: "10m"
+        memory: "32Mi"
+
+
+###################################
+## Triggerer
+###################################
+triggerer:
+  enabled: true
+  resources:
+    requests:
+      cpu: "256m"
+      memory: "2Gi"
+
+
+###################################
+## Flower
+###################################
+flower:
+  enabled: true
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "64Mi"
+  service:
+    type: ClusterIP
+    # Flower defaults to port 5555 internally
+
+
+###################################
+## LOGS Persistence
+###################################
+logs:
+  # Enable persistent volume for logs
+  persistence:
+    enabled: true
+    storageClassName: ddnfs01
+    size: 20Gi
+
+
+###################################
+## DAGS Persistence
+###################################
+dags:
+  # Enable persistent volume for DAGs
+  persistence:
+    enabled: true
+    storageClassName: ddnfs01
+    size: 1Gi
+
+  gitSync:
+    enabled: true
+    repo: "https://github.com/a7n-global/dags.git"
+    branch: main
+    rev: HEAD
+    depth: 1
+    subPath: ""
+    period: 10s
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+
+###################################
+## DATABASE | PostgreSQL Subchart
+###################################
+postgresql:
+  primary:
+    persistence:
+      enabled: true
+      storageClass: ddnfs01
+      size: 10Gi
+
+  auth:
+    enablePostgresUser: true
+    postgresPassword: postgres
+    username: ""
+    password: ""
+
+
+###################################
+## DATABASE | Redis Subchart
+###################################
+redis:
+  enabled: true
+  terminationGracePeriodSeconds: 600
+
+  persistence:
+    enabled: true
+    storageClassName: ddnfs01
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+
+
+###################################
+## Secrets Configuration
+###################################
+extraSecrets:
+  airflow-cluster1-fernet-key:
+    stringData: |
+      value: "a-very-long-random-string-used-for-fernet-key-encryption-f8x9y2z"
+
+  airflow-cluster1-webserver-key:
+    stringData: |
+      value: "a-very-long-random-string-used-for-webserver-security-key-f8x9y2z"
+
+  airflow-cluster1-redis-password:
+    stringData: |
+      redis-password: "complex-redis-password-here"
