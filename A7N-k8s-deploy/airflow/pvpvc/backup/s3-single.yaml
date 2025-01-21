@@ -1,0 +1,33 @@
+# postgres pv pvc
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-postgres
+spec:
+  capacity:
+    storage: 1000Gi  # Adjust the size as needed
+  accessModes:
+    - ReadWriteMany  # You can also use ReadWriteMany depending on your needs
+  mountOptions:
+    - allow-delete
+    - region us-west-2
+    - prefix airflow-postgres/
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: "pv-postgres-handle"  # A unique ID for the volume
+    volumeAttributes:
+      bucket: data-infra-s3-dev
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-airflow-pvc
+spec:
+  accessModes:
+    - ReadWriteMany  # Match this with the PV's access mode
+  storageClassName: "" # required for static provisioning
+  resources:
+    requests:
+      storage: 1000Gi  # This should match the PV's capacity
+  volumeName: pv-postgres  # This must match the PV's name
+---
