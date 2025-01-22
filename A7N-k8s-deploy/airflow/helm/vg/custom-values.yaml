@@ -137,7 +137,7 @@ web:
 ## Celery Workers
 ###################################
 workers:
-  replicas: 40
+  replicas: 10
   resources:
     requests:
       cpu: "2000m"

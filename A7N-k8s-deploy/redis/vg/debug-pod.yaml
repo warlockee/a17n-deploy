@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memtier-deployment
+  namespace: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memtier
+  template:
+    metadata:
+      labels:
+        app: memtier
+    spec:
+      containers:
+      - name: memtier
+        image: redislabs/memtier_benchmark:latest
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            echo "Memtier started in background. Container will remain alive..."
+            while true; do
+              sleep 30
+            done
