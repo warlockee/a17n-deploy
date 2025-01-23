@@ -1,0 +1,2 @@
+We need to exec into the debug pod and chmod -R 777 /opt/airflow/logs, /opt/airflow/dags, /opt/airflow/shared
+

@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: airflow-debug
+  namespace: airflow
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  containers:
+  - name: debug
+    image: ubuntu:latest
+    command: ["sleep", "infinity"]
+    securityContext:
+      runAsUser: 0
+      allowPrivilegeEscalation: true
+    volumeMounts:
+    - name: airflow-logs
+      mountPath: /opt/airflow/logs
+    - name: airflow-dags
+      mountPath: /opt/airflow/dags
+    - name: airflow-shared
+      mountPath: /opt/airflow/shared
+  volumes:
+  - name: airflow-logs
+    persistentVolumeClaim:
+      claimName: airflow-logs
+  - name: airflow-dags
+    persistentVolumeClaim:
+      claimName: airflow-dags
+  - name: airflow-shared
+    persistentVolumeClaim:
+      claimName: airflow-shared 
