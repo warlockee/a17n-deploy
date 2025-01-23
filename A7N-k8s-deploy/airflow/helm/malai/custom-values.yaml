@@ -244,7 +244,14 @@ postgresql:
     postgresPassword: postgres
     username: ""
     password: ""
-
+    
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
 
 ###################################
 ## DATABASE | Redis Subchart
