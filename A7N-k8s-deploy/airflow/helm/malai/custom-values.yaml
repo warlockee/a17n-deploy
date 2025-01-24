@@ -128,14 +128,18 @@ scheduler:
 ###################################
 ## Webserver
 ###################################
-web:
+webserver:
   resources:
     requests:
       cpu: "200m"
       memory: "900Mi"
   service:
-    type: ClusterIP
-    port: 80
+    type: LoadBalancer
+    ports:
+      - port: 8080
+        targetPort: 8080
+        protocol: TCP
+        name: airflow-ui
 
 
 ###################################
