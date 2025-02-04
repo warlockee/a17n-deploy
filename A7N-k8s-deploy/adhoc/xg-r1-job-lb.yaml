@@ -1,0 +1,18 @@
+# Adding a service for the R1 job: job-1kzttowpf1
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-1kzttowpf1-master-0-lb
+  namespace: project-llm
+spec:
+  selector:
+    training.kubeflow.org/job-name: job-1kzttowpf1
+    training.kubeflow.org/operator-name: pytorchjob-controller
+    training.kubeflow.org/replica-index: "0"
+    training.kubeflow.org/replica-type: master
+  type: LoadBalancer
+  ports:
+    - name: pytorchjob-port
+      protocol: TCP
+      port: 30000       # Service port (external/cluster facing)
+      targetPort: 30000 # Container port in the Pod
