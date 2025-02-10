@@ -2,11 +2,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: job-aw64nservp-master-0-lb
+  name: job-gpt3ofyvgo-master-0-lb
   namespace: project-llm
 spec:
   selector:
-    training.kubeflow.org/job-name: job-aw64nservp
+    training.kubeflow.org/job-name: job-gpt3ofyvgo
     training.kubeflow.org/operator-name: pytorchjob-controller
     training.kubeflow.org/replica-index: "0"
     training.kubeflow.org/replica-type: master

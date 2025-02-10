@@ -1,0 +1,15 @@
+# Adding a service for the R1 job: job-aw64nservp
+apiVersion: v1
+kind: Service
+metadata:
+  name: serving-crte2wdzep-lb
+  namespace: project-llm
+spec:
+  selector:
+    serving.infra.shiyak.com/predictor: serving-crte2wdzep-0  # Updated to match the actual pod labels
+  type: LoadBalancer
+  ports:
+    - name: serving-port
+      protocol: TCP
+      port: 30001       # Service port (external/cluster facing)
+      targetPort: 11434 # Container port in the Pod
