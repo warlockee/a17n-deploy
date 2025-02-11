@@ -1,0 +1,18 @@
+# Adding a service for the R1 job: job-aw64nservp
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-8j51explrt-master-0-lb
+  namespace: project-llm
+spec:
+  selector:
+    training.kubeflow.org/job-name: job-8j51explrt
+    training.kubeflow.org/operator-name: pytorchjob-controller
+    training.kubeflow.org/replica-index: "0"
+    training.kubeflow.org/replica-type: master
+  type: LoadBalancer
+  ports:
+    - name: pytorchjob-port
+      protocol: TCP
+      port: 23456       # Service port (external/cluster facing)
+      targetPort: 23456 # Container port in the Pod
