@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-tifa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-tifa
+  template:
+    metadata:
+      labels:
+        app: ollama-tifa
+    spec:
+      volumes:
+        - name: host-path-ckpt
+          hostPath:
+            path: /mnt/ddnfs01/share/ckpt
+            type: DirectoryOrCreate
+        - name: host-path-share
+          hostPath:
+            path: /mnt/ddnfs01/share
+            type: DirectoryOrCreate
+        - name: host-path-personal
+          hostPath:
+            path: /mnt/ddnfs01/personal/badname
+            type: DirectoryOrCreate
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Gi
+      containers:
+      - name: ollama
+        image: hub.anuttacon.com/infra/ollama-tifa:latest
+        ports:
+        - containerPort: 11434
+        resources:
+          requests:
+            cpu: "32"
+            memory: "128Gi"
+            nvidia.com/gpu: "8"
+          limits:
+            cpu: "200"
+            memory: "1000Gi"
+            nvidia.com/gpu: "8"
+        volumeMounts:
+        - name: host-path-ckpt
+          mountPath: /mnt/share/ckpt
+        - name: host-path-share
+          mountPath: /mnt/share
+        - name: host-path-personal
+          mountPath: /mnt/personal
+        - name: dshm
+          mountPath: /dev/shm
+        env:
+        - name: NCCL_DEBUG
+          value: "WARN"
+        - name: NCCL_SOCKET_IFNAME
+          value: "eth0"
+        - name: NCCL_IB_QPS_PER_CONNECTION
+          value: "4"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.product
+                operator: In
+                values:
+                - "NVIDIA-H100-80GB-HBM3"
+              - key: infra.shiyak.com/node-type
+                operator: In
+                values:
+                - "H100"
+      schedulerName: volcano
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-tifa-service
+spec:
+  selector:
+    app: ollama-tifa
+  ports:
+    - protocol: TCP
+      port: 11434
+      targetPort: 11434
+  type: LoadBalancer 
