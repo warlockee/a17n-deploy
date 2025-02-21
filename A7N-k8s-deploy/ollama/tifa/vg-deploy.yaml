@@ -59,6 +59,8 @@ spec:
           value: "eth0"
         - name: NCCL_IB_QPS_PER_CONNECTION
           value: "4"
+        - name: OLLAMA_MODELS
+          value: "/mnt/share/ckpt"
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
