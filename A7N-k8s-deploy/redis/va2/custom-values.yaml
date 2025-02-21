@@ -1,0 +1,68 @@
+resourcesPreset: null
+
+cluster:
+  nodes: 25
+  replicas: 2
+
+persistence:
+  storageClass: "ddnfs01"
+  size: "10Gi"
+
+auth:
+  enabled: true
+  password: "admin"
+
+master:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "16Gi"
+    limits:
+      cpu: "4"
+      memory: "32Gi"
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+replica:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "16Gi"
+    limits:
+      cpu: "4"
+      memory: "32Gi"
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+updateJob:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+redis:
+  config:
+    cluster-node-timeout: 5000
+    cluster-require-full-coverage: "no"
+    maxmemory-policy: "allkeys-lru"
+    io-threads: 4
+    io-threads-do-reads: "yes"
+    maxmemory-samples: 10
+  resources:
+    requests:
+      cpu: "2"
+      memory: "16Gi"
+    limits:
+      cpu: "4"
+      memory: "32Gi"
