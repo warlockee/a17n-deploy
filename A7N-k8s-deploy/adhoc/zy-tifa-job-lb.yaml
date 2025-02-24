@@ -1,12 +1,12 @@
-# Adding a service for the R1 job: job-aw64nservp
+# Adding a service for the R1 job: job-m1wj7k0ffs
 apiVersion: v1
 kind: Service
 metadata:
-  name: job-8j51explrt-master-0-lb
-  namespace: project-llm
+  name: job-m1wj7k0ffs-master-0-lb
+  namespace: project-motion
 spec:
   selector:
-    training.kubeflow.org/job-name: job-8j51explrt
+    training.kubeflow.org/job-name: job-m1wj7k0ffs
     training.kubeflow.org/operator-name: pytorchjob-controller
     training.kubeflow.org/replica-index: "0"
     training.kubeflow.org/replica-type: master
@@ -16,3 +16,8 @@ spec:
       protocol: TCP
       port: 23456       # Service port (external/cluster facing)
       targetPort: 23456 # Container port in the Pod
+  externalTrafficPolicy: Local    # Added for better routing
+  sessionAffinity: ClientIP      # Added for connection stability
+  sessionAffinityConfig:         # Added to configure timeout
+    clientIP:
+      timeoutSeconds: 10800
