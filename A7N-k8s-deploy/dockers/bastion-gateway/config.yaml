@@ -1,0 +1,7 @@
+mappings:
+  - name: Tifa-1
+    src: "10.21.100.70:11434"
+    dst: "ec2-13-57-59-255.us-west-1.compute.amazonaws.com:30001"
+  - name: DeepSeek-1
+    src: "10.27.100.157:30000"
+    dst: "ec2-13-57-59-255.us-west-1.compute.amazonaws.com:30000"
