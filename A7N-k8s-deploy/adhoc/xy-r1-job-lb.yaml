@@ -1,0 +1,48 @@
+# Services for job-uh83mw6fbg
+---
+# Exposing master pod
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-uh83mw6fbg-master-lb
+  namespace: project-motion
+  labels:
+    training.kubeflow.org/job-name: job-uh83mw6fbg
+  annotations:
+    # Ollama may need special handling for timeouts due to large model loading
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+spec:
+  selector:
+    training.kubeflow.org/job-name: job-uh83mw6fbg
+    training.kubeflow.org/operator-name: pytorchjob-controller
+    training.kubeflow.org/replica-index: '0'
+    training.kubeflow.org/replica-type: master
+  type: LoadBalancer
+  ports:
+    - name: ollama-api
+      protocol: TCP
+      port: 11434
+      targetPort: 11434
+---
+# Alternative NodePort method for master pod
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-uh83mw6fbg-master-np
+  namespace: project-motion
+  labels:
+    training.kubeflow.org/job-name: job-uh83mw6fbg
+spec:
+  selector:
+    training.kubeflow.org/job-name: job-uh83mw6fbg
+    training.kubeflow.org/operator-name: pytorchjob-controller
+    training.kubeflow.org/replica-index: '0'
+    training.kubeflow.org/replica-type: master
+  type: NodePort
+  ports:
+    - name: ollama-api
+      protocol: TCP
+      port: 11434
+      targetPort: 11434
+      nodePort: 31434
