@@ -1,211 +1,244 @@
-import os
-import time
-import subprocess
+#!/usr/bin/env python3
 import yaml
-import signal
+import subprocess
+import time
 import socket
+import os
+import sys
+import signal
+import logging
 
-CONFIG_FILE = "/config.yaml"
-SSH_CONFIG_DIR = "/root/.ssh"
-SSH_PRIVATE_KEY = "/root/.ssh/id_rsa"
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('bastion-gateway')
 
-
-def load_config():
-    with open(CONFIG_FILE, "r") as f:
-        return yaml.safe_load(f)
-
-
-def find_available_port():
-    """Find an available port on localhost by creating a socket and letting the OS assign a port."""
-    sock = socket.socket()
-    sock.bind(('', 0))  # Bind to any available port
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
+# Global variables
+processes = {}
+port_mappings = {}
 
 
-def spawn_process_with_retry(cmd, max_retries=5, initial_delay=1):
-    for attempt in range(max_retries):
+def find_free_port():
+    """Find a free port on the local system."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
+def spawn_processes(config):
+    """Spawn processes for all mappings in the config."""
+    global processes, port_mappings
+
+    for mapping in config['mappings']:
+        name = mapping['name']
+        src = mapping['src']
+        dst = mapping['dst']
+
+        # Detect if the source is HTTPS from the URL
+        is_https = src.lower().startswith('https://')
+
+        logger.info(
+            f"Processing mapping: {name}, src: {src}, dst: {dst}, HTTPS: {is_https}")
+
         try:
-            proc = subprocess.Popen(cmd)
-            return proc
-        except Exception as e:
-            if attempt < max_retries - 1:
-                delay = initial_delay * (2 ** attempt)
-                print(f"Connection attempt failed, retrying in {delay}s: {e}")
-                time.sleep(delay)
+            # Parse source
+            if is_https:
+                # For HTTPS URLs, remove the protocol prefix
+                src = src[8:]  # Remove 'https://'
+            elif src.lower().startswith('http://'):
+                # For HTTP URLs, remove the protocol prefix
+                src = src[7:]  # Remove 'http://'
+
+            src_host, src_port = src.split(':')
+            src_port = int(src_port)
+
+            # Parse destination
+            dst_host, dst_port = dst.split(':')
+            dst_port = int(dst_port)
+
+            # Find a free local port
+            local_port = find_free_port()
+            port_mappings[name] = local_port
+            # Store HTTPS status for restart
+            port_mappings[f"{name}_is_https"] = is_https
+
+            logger.info(f"For mapping {name}: Using local port {local_port}")
+
+            # Start socat process based on protocol
+            if is_https:
+                socat_cmd = [
+                    'socat',
+                    f'TCP-LISTEN:{local_port},fork,rcvbuf=1024000,sndbuf=1024000',
+                    f'OPENSSL:{src_host}:{src_port},verify=0,rcvbuf=1024000,sndbuf=1024000'
+                ]
+                logger.info(
+                    f"Starting socat process with OPENSSL for {name}: {' '.join(socat_cmd)}")
             else:
-                raise
+                socat_cmd = [
+                    'socat',
+                    f'TCP-LISTEN:{local_port},fork,rcvbuf=1024000,sndbuf=1024000',
+                    f'TCP:{src_host}:{src_port},rcvbuf=1024000,sndbuf=1024000'
+                ]
+                logger.info(
+                    f"Starting socat process for {name}: {' '.join(socat_cmd)}")
 
+            socat_process = subprocess.Popen(socat_cmd)
+            processes[f"{name}_socat"] = socat_process
 
-def spawn_processes(mappings):
-    processes = {}
-    mapping_configs = {}  # Store mapping configs for restart purposes
+            logger.info(f"Starting tunnel for {name} to {dst_host}:{dst_port}")
 
-    for mapping in mappings:
-        name = mapping.get("name")
-        if not name:
-            print("Skipping mapping without a name:", mapping)
-            continue
+            # Start autossh process
+            autossh_cmd = [
+                'autossh',
+                '-M', '0',
+                '-N',
+                '-o', 'ServerAliveInterval=60',
+                '-o', 'ServerAliveCountMax=3',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'TCPKeepAlive=yes',
+                '-o', 'Compression=yes',
+                '-v',
+                '-i', '/root/.ssh/id_rsa',
+                '-R', f'{dst_port}:localhost:{local_port}',
+                f'root@{dst_host}'
+            ]
 
-        # Get configuration for autossh
-        src = mapping.get("src", "")
-        dst = mapping.get("dst", "")
+            logger.info(
+                f"Starting autossh process for {name}: {' '.join(autossh_cmd)}")
+            autossh_process = subprocess.Popen(autossh_cmd)
+            processes[f"{name}_autossh"] = autossh_process
 
-        if not dst:
-            print(f"Skipping mapping '{name}': dst not specified")
-            continue
-
-        try:
-            # Parse source and destination connection info
-            src_host, src_port = src.split(":")
-            dst_host, dst_port = dst.split(":")
         except Exception as e:
-            print(f"Error parsing src/dst in mapping {mapping}: {e}")
-            continue
-
-        # Store mapping configuration for potential restarts
-        mapping_configs[name] = {
-            "src": src,
-            "dst": dst,
-            "src_host": src_host,
-            "src_port": src_port,
-            "dst_host": dst_host,
-            "dst_port": dst_port
-        }
-
-        # Dynamically find an available port
-        bastion_port = find_available_port()
-        mapping_configs[name]["bastion_port"] = bastion_port
-        print(f"Using local port {bastion_port} for mapping '{name}'")
-
-        # Step 1: Set up socat to listen on the bastion (using dynamic port)
-        # Listen on dynamically allocated port and forward to the internal service (src)
-        # Optimize with larger buffers for better throughput
-        socat_cmd = [
-            "socat",
-            f"TCP-LISTEN:{bastion_port},fork,rcvbuf=1024000,sndbuf=1024000",
-            f"TCP:{src},rcvbuf=1024000,sndbuf=1024000"
-        ]
-
-        print(f"Starting socat for mapping '{name}':", " ".join(socat_cmd))
-        socat_proc = spawn_process_with_retry(socat_cmd)
-        processes[f"{name}_socat"] = socat_proc
-
-        # Step 2: Set up autossh to forward from bastion to destination
-        # Build the autossh command with optimized TCP settings
-        autossh_cmd = [
-            "autossh",
-            "-M", "0",  # Disable autossh's monitoring
-            "-N",       # Don't execute remote command
-            "-o", "ServerAliveInterval=60",
-            "-o", "ServerAliveCountMax=3",
-            "-o", "StrictHostKeyChecking=no",
-            "-o", "TCPKeepAlive=yes",
-            "-o", "Compression=yes",  # Enable compression for better throughput
-            "-v",       # Verbose mode
-            "-i", SSH_PRIVATE_KEY  # Use the standard private key path
-        ]
-
-        # Create the remote tunnel
-        autossh_cmd.extend([
-            "-R", f"{dst_port}:localhost:{bastion_port}",
-            f"root@{dst_host}"  # Use the hostname from dst
-        ])
-
-        print(f"Starting autossh for mapping '{name}':", " ".join(autossh_cmd))
-        autossh_proc = spawn_process_with_retry(autossh_cmd)
-        processes[f"{name}_autossh"] = autossh_proc
-
-    return processes, mapping_configs
+            logger.error(f"Error setting up mapping {name}: {str(e)}")
 
 
-def kill_processes(processes):
-    for name, proc in processes.items():
-        print(f"Killing process '{name}' (pid {proc.pid})")
-        proc.send_signal(signal.SIGTERM)
-        proc.wait()
-    processes.clear()
+def check_processes(config):
+    """Check processes and restart if needed."""
+    global processes
+
+    while True:
+        for process_name, process in list(processes.items()):
+            # Check if process is still running
+            if process.poll() is not None:
+                mapping_name = process_name.split('_')[0]
+                process_type = process_name.split('_')[1]
+
+                logger.warning(
+                    f"Process {process_name} terminated with code {process.returncode}. Restarting...")
+
+                # Find mapping in config
+                mapping = next(
+                    (m for m in config['mappings'] if m['name'] == mapping_name), None)
+
+                if mapping:
+                    try:
+                        if process_type == 'socat':
+                            local_port = port_mappings[mapping_name]
+
+                            # Get the stored HTTPS status
+                            is_https = port_mappings.get(
+                                f"{mapping_name}_is_https", False)
+
+                            # Get source information
+                            src = mapping['src']
+
+                            # Handle protocol prefix if present
+                            if is_https:
+                                if src.lower().startswith('https://'):
+                                    src = src[8:]  # Remove 'https://'
+                            elif src.lower().startswith('http://'):
+                                src = src[7:]  # Remove 'http://'
+
+                            src_host, src_port = src.split(':')
+                            src_port = int(src_port)
+
+                            # Start the appropriate socat command based on the protocol
+                            if is_https:
+                                socat_cmd = [
+                                    'socat',
+                                    f'TCP-LISTEN:{local_port},fork,rcvbuf=1024000,sndbuf=1024000',
+                                    f'OPENSSL:{src_host}:{src_port},verify=0,rcvbuf=1024000,sndbuf=1024000'
+                                ]
+                                logger.info(
+                                    f"Restarting socat process with OPENSSL for {mapping_name}: {' '.join(socat_cmd)}")
+                            else:
+                                socat_cmd = [
+                                    'socat',
+                                    f'TCP-LISTEN:{local_port},fork,rcvbuf=1024000,sndbuf=1024000',
+                                    f'TCP:{src_host}:{src_port},rcvbuf=1024000,sndbuf=1024000'
+                                ]
+                                logger.info(
+                                    f"Restarting socat process for {mapping_name}: {' '.join(socat_cmd)}")
+
+                            socat_process = subprocess.Popen(socat_cmd)
+                            processes[f"{mapping_name}_socat"] = socat_process
+
+                        elif process_type == 'autossh':
+                            local_port = port_mappings[mapping_name]
+                            dst_host, dst_port = mapping['dst'].split(':')
+                            dst_port = int(dst_port)
+
+                            autossh_cmd = [
+                                'autossh',
+                                '-M', '0',
+                                '-N',
+                                '-o', 'ServerAliveInterval=60',
+                                '-o', 'ServerAliveCountMax=3',
+                                '-o', 'StrictHostKeyChecking=no',
+                                '-o', 'TCPKeepAlive=yes',
+                                '-o', 'Compression=yes',
+                                '-v',
+                                '-i', '/root/.ssh/id_rsa',
+                                '-R', f'{dst_port}:localhost:{local_port}',
+                                f'root@{dst_host}'
+                            ]
+
+                            logger.info(
+                                f"Restarting autossh process for {mapping_name}: {' '.join(autossh_cmd)}")
+                            autossh_process = subprocess.Popen(autossh_cmd)
+                            processes[f"{mapping_name}_autossh"] = autossh_process
+                    except Exception as e:
+                        logger.error(
+                            f"Error restarting process {process_name}: {str(e)}")
+
+        time.sleep(10)
 
 
-def check_tunnel_health(processes, mapping_configs):
-    """Monitor and restart any failed processes."""
-    for name, proc in list(processes.items()):
-        if proc.poll() is not None:  # Process has terminated
-            print(
-                f"Process '{name}' died unexpectedly (exit code: {proc.returncode}). Restarting...")
+def signal_handler(sig, frame):
+    """Handle signals to terminate the program cleanly."""
+    logger.info("Received signal to terminate. Shutting down...")
 
-            # Determine if this is a socat or autossh process and restart
-            if name.endswith("_socat"):
-                mapping_name = name[:-6]  # Remove "_socat" suffix
-                if mapping_name in mapping_configs:
-                    config = mapping_configs[mapping_name]
-                    socat_cmd = [
-                        "socat",
-                        f"TCP-LISTEN:{config['bastion_port']},fork,rcvbuf=1024000,sndbuf=1024000",
-                        f"TCP:{config['src']},rcvbuf=1024000,sndbuf=1024000"
-                    ]
-                    print(
-                        f"Restarting socat for mapping '{mapping_name}':", " ".join(socat_cmd))
-                    new_proc = spawn_process_with_retry(socat_cmd)
-                    processes[name] = new_proc
+    for process_name, process in processes.items():
+        logger.info(f"Terminating process {process_name}")
+        process.terminate()
 
-            elif name.endswith("_autossh"):
-                mapping_name = name[:-8]  # Remove "_autossh" suffix
-                if mapping_name in mapping_configs:
-                    config = mapping_configs[mapping_name]
-                    autossh_cmd = [
-                        "autossh",
-                        "-M", "0",
-                        "-N",
-                        "-o", "ServerAliveInterval=60",
-                        "-o", "ServerAliveCountMax=3",
-                        "-o", "StrictHostKeyChecking=no",
-                        "-o", "TCPKeepAlive=yes",
-                        "-o", "Compression=yes",
-                        "-v",
-                        "-i", SSH_PRIVATE_KEY
-                    ]
-                    autossh_cmd.extend([
-                        "-R", f"{config['dst_port']}:localhost:{config['bastion_port']}",
-                        f"root@{config['dst_host']}"
-                    ])
-                    print(f"Restarting autossh for mapping '{mapping_name}':", " ".join(
-                        autossh_cmd))
-                    new_proc = spawn_process_with_retry(autossh_cmd)
-                    processes[name] = new_proc
+    sys.exit(0)
 
 
 def main():
-    last_mtime = 0
-    processes = {}
-    mapping_configs = {}
+    """Main function."""
+    # Load configuration
+    logger.info("Loading configuration from /config.yaml")
+    try:
+        with open('/config.yaml', 'r') as file:
+            config = yaml.safe_load(file)
+            logger.info(f"Loaded configuration: {config}")
+    except Exception as e:
+        logger.error(f"Error loading configuration: {str(e)}")
+        return
 
-    while True:
-        try:
-            mtime = os.path.getmtime(CONFIG_FILE)
-            if mtime != last_mtime:
-                print("Config file changed; reloading mappings...")
-                config = load_config()
-                mappings = config.get("mappings", [])
-                kill_processes(processes)
-                processes, mapping_configs = spawn_processes(mappings)
-                last_mtime = mtime
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-            # Check and restore any failed tunnel processes
-            check_tunnel_health(processes, mapping_configs)
+    # Spawn processes
+    spawn_processes(config)
 
-            time.sleep(5)
-        except KeyboardInterrupt:
-            print("Shutting down...")
-            kill_processes(processes)
-            break
-        except Exception as e:
-            print("Error:", e)
-            time.sleep(5)
+    # Check processes
+    check_processes(config)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
 
 # Add exponential backoff for connection attempts

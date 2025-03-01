@@ -8,3 +8,6 @@ mappings:
   - name: R1-1776
     src: "10.21.100.78:11434"
     dst: "ec2-13-57-59-255.us-west-1.compute.amazonaws.com:30003"
+  - name: Sonnet-3.7
+    src: "https://llm-proxy.dev.anuttacon.com:9090"
+    dst: "ec2-13-57-59-255.us-west-1.compute.amazonaws.com:30004"
