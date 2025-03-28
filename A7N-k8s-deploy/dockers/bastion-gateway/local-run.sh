@@ -1,1 +1,1 @@
-docker stop bastion-gw || true && docker rm bastion-gw || true && docker run --name bastion-gw -d warlockee/bastion-gw:latest
+docker stop bastion-gw || true && docker rm bastion-gw || true && docker run --pull always --name bastion-gw -d warlockee/bastion-gw:latest
