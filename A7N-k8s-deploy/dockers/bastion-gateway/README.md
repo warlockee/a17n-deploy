@@ -29,6 +29,55 @@ docker run -d \
   bastion-gateway
 ```
 
+## Running as a Systemd Service
+
+To run the bastion gateway as a systemd service for automatic startup and restarts, follow these steps:
+
+1.  **Create the service file:**
+    Create a file named `/etc/systemd/system/bastion-gateway.service` with the following content:
+
+    ```ini
+    [Unit]
+    Description=Bastion Gateway Docker Container
+    Requires=docker.service
+    After=docker.service network-online.target
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    WorkingDirectory=/etc/systemd/system/
+    ExecStart=/bin/bash /etc/systemd/system/run-bastion.sh
+    ExecStop=/usr/bin/docker stop bastion-gw
+    ExecStop=/usr/bin/docker rm bastion-gw
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+2.  **Create the run script:**
+    Create a helper script named `/etc/systemd/system/run-bastion.sh` with execute permissions (`chmod +x run-bastion.sh`). This script ensures the container is stopped and removed before starting a new one.
+
+    ```bash
+    #!/bin/bash
+    docker stop bastion-gw || true && docker rm bastion-gw || true && docker run --pull always --name bastion-gw -d warlockee/bastion-gw:latest
+    ```
+    *Note:* Ensure the Docker image `warlockee/bastion-gw:latest` exists or replace it with your image name. Adjust the `docker run` command if you need different parameters (like network mode or volume mounts based on the basic run command above). For instance, if you built the image locally as `bastion-gateway` and need host networking, the command would look more like:
+    `docker run --network=host --restart unless-stopped --name bastion-gw -d bastion-gateway`
+
+3.  **Enable and start the service:**
+
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable bastion-gateway.service
+    sudo systemctl start bastion-gateway.service
+    ```
+
+4.  **Check the service status:**
+
+    ```bash
+    sudo systemctl status bastion-gateway.service
+    ```
+
 ## Configuration
 
 Edit `config.yaml` to configure your mappings:
